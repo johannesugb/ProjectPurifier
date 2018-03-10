@@ -10,7 +10,7 @@
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" MinWidth="400" />
             <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" MinWidth="400" />
         </Grid.ColumnDefinitions>
 		<Grid.RowDefinitions>
 			<RowDefinition Height="Auto"/>
@@ -18,8 +18,8 @@
 			<RowDefinition Height="Auto"/>
 		</Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Vertical" Margin="6">
-            <TextBlock Text="Input-Folders:"/>
+        <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Vertical" HorizontalAlignment="Stretch" Margin="6">
+            <TextBlock Text="Input-Folders:" HorizontalAlignment="Stretch"/>
             <Grid>
                 <TextBox Text="{Binding InputFolders}" TextWrapping="Wrap" AcceptsReturn="True" Padding="2" Margin="1"
 						 x:Name="TbInputFolders" Height="50" />
@@ -39,7 +39,7 @@
 			<Separator Margin="20,4,1,4"/>
 		</StackPanel>
 		
-		<ScrollViewer Grid.Row="1" Grid.Column="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+		<ScrollViewer Grid.Row="1" Grid.Column="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" HorizontalAlignment="Stretch">
 			<StackPanel  Orientation="Vertical" Margin="6">
 				<TextBlock Text="Files to exclude" Margin="20,2,0,0" FontWeight="Bold" Foreground="DimGray" Background="#EEEEEE" Padding="2"/>
 				<ItemsControl Margin="28,2,0,10" ItemsSource="{Binding ExcludedFiles}">
@@ -97,7 +97,7 @@
 			</StackPanel>
 		</ScrollViewer>
 		
-		<StackPanel Grid.Row="2" Grid.Column="0" Orientation="Vertical" Margin="6">
+		<StackPanel Grid.Row="2" Grid.Column="0" Orientation="Vertical" Margin="6" HorizontalAlignment="Stretch">
 			<TextBlock Text="Output-Folder:" Margin="0,8,0,0"/>
             <Grid Margin="0,0,0,0">
                 <TextBox Text="{Binding OutputFolder}" Padding="2" x:Name="TbOutputFolder" Margin="1" />
@@ -106,8 +106,11 @@
             <Button Padding="2" Margin="0,8" Content="JUST... DO IT!"
                     Command="{Binding JustDoIt}"/>
         </StackPanel>
-        
-        <GridSplitter Grid.Column="1" Grid.RowSpan="3" Width="6" />
+
+		<GridSplitter Grid.Column="1" Grid.RowSpan="3" Width="6" 
+					  ResizeDirection="Columns"
+		              ResizeBehavior="PreviousAndNext"
+		              HorizontalAlignment="Stretch"/>
 
 		<Grid Grid.Column="2" Grid.RowSpan="3" Margin="6">
             <Grid.RowDefinitions>

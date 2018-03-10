@@ -9,7 +9,9 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Threading;
 using ProjectPurifier.Commands;
 using ProjectPurifier.Properties;
 using ProjectPurifier.Utils;
@@ -21,6 +23,7 @@ namespace ProjectPurifier.ViewModel
 		static readonly Regex RegexExcludeFiles =  new Regex(@"^\s*#pragma\s+purifier_exclude_files\s*\(([\w.\*]+)\s*\)", RegexOptions.Compiled);
 		static readonly Regex RegexExcludeFilter = new Regex(@"^\s*#pragma\s+purifier_exclude_filter\s*\(([\w.\*]+)\s*\)", RegexOptions.Compiled);
 	    static readonly Regex RegexDefine = new Regex(@"^\s*#define\s+([\w]+)\s+(.*)", RegexOptions.Compiled);
+	    static readonly Regex RegexFuncMacro =  new Regex(@"^\s*#define\s+(\w+)\s*\((.*)\)\s+(.*)", RegexOptions.Compiled);
 		static readonly Regex RegexIf = new Regex(@"^\s*#if\s+(.*)", RegexOptions.Compiled);
 		static readonly Regex RegexElse = new Regex(@"^\s*#else\s+(.*)", RegexOptions.Compiled);
 		static readonly Regex RegexElif = new Regex(@"^\s*#elif\s+(.*)", RegexOptions.Compiled);
@@ -108,9 +111,7 @@ namespace ProjectPurifier.ViewModel
 		    {
 			    var tb = x as TextBox;
 			    Debug.Assert(null != tb);
-			    var tmp = tb.Text;
-			    tb.Text = string.Empty;
-			    tb.Text = tmp;
+			    BindingOperations.GetBindingExpressionBase(tb, TextBox.TextProperty).UpdateSource();
 		    }, x => null != x);
 
 			JustDoIt = new DelegateCommand(_ =>
@@ -137,12 +138,13 @@ namespace ProjectPurifier.ViewModel
 
 	    private void LoadDefinesAndStuff()
 	    {
+			if (string.IsNullOrWhiteSpace(PurifierConfigFile) || !File.Exists(PurifierConfigFile))
+			{
+				return;
+			}
+
 		    try
 		    {
-			    if (string.IsNullOrWhiteSpace(PurifierConfigFile))
-			    {
-				    return;
-			    }
 
 			    var defLines = File.ReadAllLines(PurifierConfigFile);
 			    
@@ -202,9 +204,43 @@ namespace ProjectPurifier.ViewModel
 						    {
 								Defines.Add(new DefineVM
 								{
+									FullDefinition = line,
 									Name = defineName,
 									DefinedAs = definedAs
 								});
+						    }
+					    }
+				    }
+
+				    // check if it is a function-macro define
+				    {
+					    var match = RegexFuncMacro.Match(line);
+					    if (match.Success)
+					    {
+						    var defineName = match.Groups[1].ToString();
+						    var definedAs = line.Substring(line.IndexOf("#define", StringComparison.InvariantCulture) + "#define".Length);
+
+						    // do we already have this define?
+						    var found = Defines.FirstOrDefault(x => x.Name == defineName);
+						    var error = false;
+						    if (null != found)
+						    {
+							    // check if it has the same definition as the previous one
+							    if (found.DefinedAs != definedAs)
+							    {
+								    Errors.Add($"Multiple definitions found for {defineName} which differ.");
+							    }
+							    error = true;
+						    }
+
+						    if (!error)
+						    {
+							    Defines.Add(new DefineVM
+							    {
+								    FullDefinition = line,
+								    Name = defineName,
+								    DefinedAs = definedAs
+							    });
 						    }
 					    }
 				    }
@@ -219,9 +255,14 @@ namespace ProjectPurifier.ViewModel
 
 	    public void PurifyFile(string filepath)
 		{
+			if (string.IsNullOrWhiteSpace(filepath) || !File.Exists(filepath))
+			{
+				return;
+			}
+
 			try
 			{
-				var purifier = new Purification(Defines);
+				var purifier = new Purifier(Defines);
 				var inputLines = File.ReadAllLines(InspectionFile);
 
 				var sb = new StringBuilder();

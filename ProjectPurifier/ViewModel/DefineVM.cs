@@ -8,6 +8,13 @@ namespace ProjectPurifier.ViewModel
 {
 	class DefineVM : BindableBase
 	{
+		private string _fullDefinition;
+		public string FullDefinition
+		{
+			get => _fullDefinition;
+			set => SetProperty(ref _fullDefinition, value);
+		}
+
 		private string _name;
 		public string Name
 		{
