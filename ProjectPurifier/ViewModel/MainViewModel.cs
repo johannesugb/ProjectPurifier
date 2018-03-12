@@ -42,7 +42,9 @@ namespace ProjectPurifier.ViewModel
 	    public ObservableCollection<DefineVM> Defines { get; } = new ObservableCollection<DefineVM>();
 	    private Dictionary<string, DefineVM> _definesDict;
 	    public ObservableCollection<string> Errors { get; } = new ObservableCollection<string>();
-    
+
+	    public Purifier Purifier { get; set; }
+
 	    public ICommand RefreshTextbox { get; }
 	    public ICommand JustDoIt { get; }
 		
@@ -271,44 +273,84 @@ namespace ProjectPurifier.ViewModel
 	    }
 
 		/// <summary>
-		/// Handles an opened #if (or similar) which does not contain purification-relevant variables.
+		/// Handles block of code or a sub-block of code
 		/// Returns the next index to proceed after it has completed its work.
 		/// </summary>
 		/// <param name="lines">all input lines</param>
 		/// <param name="lineIndex">current line index</param>
 		/// <param name="isVisible">whether or not this current #if's contents are to be included in the output or not</param>
+		/// <param name="mustEvaluate">whether or not to evaluate the purifier-checks, true => do!</param>
 		/// <param name="sb">The StringBuilder which builds the output file</param>
 		/// <returns></returns>
-		private int HandlePurificationIrrelevantOpenedControlFlow(string[] lines, int lineIndex, bool isVisible, StringBuilder sb)
+		private int HandleRegion(string[] lines, int lineIndex, bool isVisible, StringBuilder sb)
 	    {
-		    return -1;
-	    }
-
-		/// <summary>
-		/// Handles an opened #if (or similar) which DOES contain purification-relevant variables.
-		/// Returns the next index to proceed after it has completed its work.
-		/// </summary>
-		/// <param name="lines">all input lines</param>
-		/// <param name="lineIndex">current line index</param>
-		/// <param name="isVisible">whether or not this current #if's contents are to be included in the output or not</param>
-		/// <param name="sb">The StringBuilder which builds the output file</param>
-		/// <returns></returns>
-		private int HandleOpenedControlFlow(string[] lines, int lineIndex, bool isVisible, StringBuilder sb)
-	    {
-			for (int i = 0; i < lines.Length; ++i)
+			while (lineIndex < lines.Length)
 			{
-				var curLine = lines[i];
-			    // search for either of the followint: #else, #elif, #endif
+				var curLine = lines[lineIndex];
+			    // (1)  IFs
+				//  1a) #if
+				{
+					var match = RegexIf.Match(curLine);
+					if (match.Success)
+					{
+						var expr = match.Groups[1].ToString();
+						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible ? (IsPurificationRelevantMacro(expr) ? Purifier.EvaluateBooleanExpression(expr) : true) : false, sb);
+					}
+				}
+				//  1b) #ifdef
+				{
+					var match = RegexIfdef.Match(curLine);
+					if (match.Success)
+					{
+						var expr = match.Groups[1].ToString();
+						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible ? (IsPurificationRelevantMacro(expr) ? Purifier.EvaluateBooleanExpression(expr) : true) : false, sb);
+					}
+				}
+				//  1c) #ifndef
+				{
+					var match = RegexIf.Match(curLine);
+					if (match.Success)
+					{
+						var expr = match.Groups[1].ToString();
+						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible ? (IsPurificationRelevantMacro(expr) ? !Purifier.EvaluateBooleanExpression(expr) : true) : false, sb);
+					}
+				}
+			    
+				// (2)  ELIF
+				{
+					var match = RegexElif.Match(curLine);
+					if (match.Success)
+					{
+						var expr = match.Groups[1].ToString();
+						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible ? (IsPurificationRelevantMacro(expr) ? Purifier.EvaluateBooleanExpression(expr) : true) : false, sb);
+					}
+				}
+
+				// (3)  ELSE
 				{
 					var match = RegexElse.Match(curLine);
 					if (match.Success)
 					{
-						return HandleOpenedControlFlow(lines, i + 1, !isVisible, sb);
+						lineIndex += 1;
 					}
 				}
-			    
+
+				// (4)  ENDIF
+				{
+					var match = RegexEndif.Match(curLine);
+					if (match.Success)
+					{
+						lineIndex += 1;
+					}
+				}
+
+				// Bounds are checked by the while-loop, just add the line if it is visible
+				if (isVisible)
+				{
+					sb.AppendLine(curLine);
+				}
 		    }
-		    return -1;
+		    return lines.Length;
 	    }
 
 		/// <summary>
@@ -324,7 +366,7 @@ namespace ProjectPurifier.ViewModel
 
 			try
 			{
-				var purifier = new Purifier(Defines);
+				Purifier = new Purifier(Defines);
 				var inputLines = File.ReadAllLines(InspectionFile);
 
 				var sb = new StringBuilder();
@@ -359,13 +401,13 @@ namespace ProjectPurifier.ViewModel
 						var match = RegexIf.Match(inputLine);
 						if (match.Success && IsPurificationRelevantMacro(match.Groups[1].ToString()))
 						{
-							if (purifier.EvaluateBooleanExpression(match.Groups[1].ToString()))
+							if (Purifier.EvaluateBooleanExpression(match.Groups[1].ToString()))
 							{
-								idx = HandleOpenedControlFlow(inputLines, idx, true, sb);
+								idx = HandleRegion(inputLines, idx, true, sb);
 							}
 							else
 							{
-								idx = HandleOpenedControlFlow(inputLines, idx, false, sb);
+								idx = HandleRegion(inputLines, idx, false, sb);
 							}
 						}
 					}
