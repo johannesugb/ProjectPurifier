@@ -27,7 +27,7 @@ namespace ProjectPurifier.ViewModel
 		static readonly Regex RegexIf = new Regex(@"^\s*#if\s+(.*)", RegexOptions.Compiled);
 		static readonly Regex RegexElse = new Regex(@"^\s*#else\s+(.*)", RegexOptions.Compiled);
 		static readonly Regex RegexElif = new Regex(@"^\s*#elif\s+(.*)", RegexOptions.Compiled);
-		static readonly Regex RegexEndif = new Regex(@"^\s*#endif\s+(.*)", RegexOptions.Compiled);
+		static readonly Regex RegexEndif = new Regex(@"^\s*#endif\s*", RegexOptions.Compiled);
 		static readonly Regex RegexIfdef = new Regex(@"^\s*#ifdef\s+(.*)", RegexOptions.Compiled);
 		static readonly Regex RegexIfndef = new Regex(@"^\s*#ifndef\s+(.*)", RegexOptions.Compiled);
 		static readonly Regex RegexInclude = new Regex(@"^\s+#include\s+[\<\""]([\w.] +)[\>\""]", RegexOptions.Compiled);
@@ -253,6 +253,68 @@ namespace ProjectPurifier.ViewModel
 		    }
 	    }
 
+		/// <summary>
+		/// It is purification-relevant, if it contains any of the #defines from the Purifier-Config-File
+		/// </summary>
+		/// <param name="macroDefinition">The macro definition, i.e. everything after the "#if"</param>
+		/// <returns>true if one of the Defines is contained in the macroDefinition</returns>
+		private bool IsPurificationRelevantMacro(string macroDefinition)
+	    {
+		    foreach (var defineVm in Defines)
+		    {
+			    if (macroDefinition.Contains(defineVm.Name))
+			    {
+				    return true;
+			    }
+		    }
+		    return false;
+	    }
+
+		/// <summary>
+		/// Handles an opened #if (or similar) which does not contain purification-relevant variables.
+		/// Returns the next index to proceed after it has completed its work.
+		/// </summary>
+		/// <param name="lines">all input lines</param>
+		/// <param name="lineIndex">current line index</param>
+		/// <param name="isVisible">whether or not this current #if's contents are to be included in the output or not</param>
+		/// <param name="sb">The StringBuilder which builds the output file</param>
+		/// <returns></returns>
+		private int HandlePurificationIrrelevantOpenedControlFlow(string[] lines, int lineIndex, bool isVisible, StringBuilder sb)
+	    {
+		    return -1;
+	    }
+
+		/// <summary>
+		/// Handles an opened #if (or similar) which DOES contain purification-relevant variables.
+		/// Returns the next index to proceed after it has completed its work.
+		/// </summary>
+		/// <param name="lines">all input lines</param>
+		/// <param name="lineIndex">current line index</param>
+		/// <param name="isVisible">whether or not this current #if's contents are to be included in the output or not</param>
+		/// <param name="sb">The StringBuilder which builds the output file</param>
+		/// <returns></returns>
+		private int HandleOpenedControlFlow(string[] lines, int lineIndex, bool isVisible, StringBuilder sb)
+	    {
+			for (int i = 0; i < lines.Length; ++i)
+			{
+				var curLine = lines[i];
+			    // search for either of the followint: #else, #elif, #endif
+				{
+					var match = RegexElse.Match(curLine);
+					if (match.Success)
+					{
+						return HandleOpenedControlFlow(lines, i + 1, !isVisible, sb);
+					}
+				}
+			    
+		    }
+		    return -1;
+	    }
+
+		/// <summary>
+		/// Walk through the given file, line by line, and purify it!
+		/// </summary>
+		/// <param name="filepath">Path to the file to be purified</param>
 	    public void PurifyFile(string filepath)
 		{
 			if (string.IsNullOrWhiteSpace(filepath) || !File.Exists(filepath))
@@ -266,24 +328,50 @@ namespace ProjectPurifier.ViewModel
 				var inputLines = File.ReadAllLines(InspectionFile);
 
 				var sb = new StringBuilder();
-				foreach (var inputLine in inputLines)
+				int idx = 0;
+				while (idx < inputLines.Length)
 				{
-					var match = RegexIf.Match(inputLine);
-					if (match.Success)
-					{
-						if (purifier.EvaluateBooleanExpression(match.Groups[1].ToString()))
+					var inputLine = inputLines[idx];
+
+					// Handle the "starting" cases of a block and one-liner-cases:
+
+					{ // Handle #include, which are a one-liners
+						var match = RegexInclude.Match(inputLine);
+						if (match.Success)
 						{
-							sb.AppendLine("PURIFIER TRUE");
-						}
-						else
-						{
-							sb.AppendLine("PURIFIER false");
+							bool exclude = false;
+							foreach (var excludedFileVm in ExcludedFiles)
+							{
+								if (match.Groups[1].ToString().Contains(excludedFileVm.Value))
+								{
+									exclude = true;
+									break;
+								}
+							}
+							if (exclude)
+							{
+								continue;
+							}
 						}
 					}
-					else
-					{
-						sb.AppendLine(inputLine);
+
+					{ // Handle #if
+						var match = RegexIf.Match(inputLine);
+						if (match.Success && IsPurificationRelevantMacro(match.Groups[1].ToString()))
+						{
+							if (purifier.EvaluateBooleanExpression(match.Groups[1].ToString()))
+							{
+								idx = HandleOpenedControlFlow(inputLines, idx, true, sb);
+							}
+							else
+							{
+								idx = HandleOpenedControlFlow(inputLines, idx, false, sb);
+							}
+						}
 					}
+					
+					// no regex matched => treat it as a normal line
+					sb.AppendLine(inputLine);
 				}
 				ProcessedFilecontents = sb.ToString();
 			}
