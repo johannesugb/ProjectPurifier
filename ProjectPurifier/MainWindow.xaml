@@ -41,11 +41,32 @@
 		
 		<ScrollViewer Grid.Row="1" Grid.Column="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" HorizontalAlignment="Stretch">
 			<StackPanel  Orientation="Vertical" Margin="6">
-				<TextBlock Text="Files to exclude" Margin="20,2,0,0" FontWeight="Bold" Foreground="DimGray" Background="#EEEEEE" Padding="2"/>
-				<ItemsControl Margin="28,2,0,10" ItemsSource="{Binding ExcludedFiles}">
+				
+				<TextBlock Text="Errors" Margin="20,2,0,0" FontWeight="Bold" Foreground="IndianRed" Background="#EEEEEE" Padding="2"/>
+				<ItemsControl Margin="28,2,0,10" ItemsSource="{Binding Errors}" Grid.IsSharedSizeScope="True">
 					<ItemsControl.ItemTemplate>
 						<DataTemplate>
-							<TextBlock Text="{Binding Value}" Margin="1"/>
+							<Grid>
+								<TextBlock Text="{Binding}"  Foreground="IndianRed"/>
+							</Grid>
+						</DataTemplate>
+					</ItemsControl.ItemTemplate>
+				</ItemsControl>
+
+				<Separator Margin="20,4,1,4"/>
+				
+				<TextBlock Text="Files to exclude" Margin="20,2,0,0" FontWeight="Bold" Foreground="DimGray" Background="#EEEEEE" Padding="2"/>
+				<ItemsControl Margin="28,2,0,10" ItemsSource="{Binding ExcludedFiles}" Grid.IsSharedSizeScope="True">
+					<ItemsControl.ItemTemplate>
+						<DataTemplate>
+							<Grid>
+								<Grid.ColumnDefinitions>
+									<ColumnDefinition SharedSizeGroup="A" Width="Auto" />
+									<ColumnDefinition SharedSizeGroup="B" Width="Auto" />
+								</Grid.ColumnDefinitions>
+								<TextBlock Text="{Binding Value}" Margin="1" VerticalAlignment="Center"/>
+								<TextBlock Grid.Column="1" Text="{Binding RegexValue}" Margin="10,2,1,1" FontFamily="Consolas" Foreground="LightGray" VerticalAlignment="Center"/>
+							</Grid>
 						</DataTemplate>
 					</ItemsControl.ItemTemplate>
 				</ItemsControl>
@@ -103,18 +124,6 @@
 
 				<Separator Margin="20,4,1,4"/>
 
-				<TextBlock Text="Errors" Margin="20,2,0,0" FontWeight="Bold" Foreground="IndianRed" Background="#EEEEEE" Padding="2"/>
-				<ItemsControl Margin="28,2,0,10" ItemsSource="{Binding Errors}" Grid.IsSharedSizeScope="True">
-					<ItemsControl.ItemTemplate>
-						<DataTemplate>
-							<Grid>
-								<TextBlock Text="{Binding}"  Foreground="IndianRed"/>
-							</Grid>
-						</DataTemplate>
-					</ItemsControl.ItemTemplate>
-				</ItemsControl>
-
-				<Separator Margin="20,4,1,4"/>
 			</StackPanel>
 		</ScrollViewer>
 		

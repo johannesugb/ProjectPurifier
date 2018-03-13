@@ -30,7 +30,10 @@ namespace ProjectPurifier.ViewModel
 		static readonly Regex RegexEndif = new Regex(@"^\s*#endif\s*", RegexOptions.Compiled);
 		static readonly Regex RegexIfdef = new Regex(@"^\s*#ifdef\s+(.*)", RegexOptions.Compiled);
 		static readonly Regex RegexIfndef = new Regex(@"^\s*#ifndef\s+(.*)", RegexOptions.Compiled);
-		static readonly Regex RegexInclude = new Regex(@"^\s+#include\s+[\<\""]([\w.] +)[\>\""]", RegexOptions.Compiled);
+		static readonly Regex RegexInclude = new Regex(@"^\s+#include\s+[\<\""]([\w.]+)[\>\""]", RegexOptions.Compiled);
+		static readonly Regex RegexClInclude = new Regex(@".*\<ClInclude.*Include\s*=\s*\""([\w.]+)\""\s*?.*?(\/\>|\>)", RegexOptions.Compiled);
+		static readonly Regex RegexClCompile = new Regex(@".*\<ClCompile.*Include\s*=\s*\""([\w.]+)\""\s*?.*?(\/\>|\>)", RegexOptions.Compiled);
+		static readonly Regex RegexFilter = new Regex(@".*<Filter.*Include\s*=\s*\""([\w.]+)\""\s*?.*?(\/\>|\>)", RegexOptions.Compiled);
 
 		private string _inputFolders;
 		private string _purifierConfigFile;
@@ -118,7 +121,33 @@ namespace ProjectPurifier.ViewModel
 
 			JustDoIt = new DelegateCommand(_ =>
 			{
-				// TODO: Parse!!!
+				// ####### 1. Copy all the files #######
+				var inputFolders = InputFolders.Split(new[] {Environment.NewLine}, StringSplitOptions.RemoveEmptyEntries);
+				foreach (var inputFolder in inputFolders)
+				{
+					var inputDirInfo = new DirectoryInfo(inputFolder);
+					var destinationPath = Path.Combine(OutputFolder, inputDirInfo.Name);
+
+					//Now Create all of the directories
+					Directory.CreateDirectory(destinationPath);
+					foreach (string dirPath in Directory.GetDirectories(inputFolder, "*", SearchOption.AllDirectories))
+					{
+						Directory.CreateDirectory(dirPath.Replace(inputFolder, destinationPath));
+					}
+
+					//Copy all the files & Replaces any files with the same name
+					foreach (string newPath in Directory.GetFiles(inputFolder, "*.*", SearchOption.AllDirectories))
+					{
+						File.Copy(newPath, newPath.Replace(inputFolder, destinationPath), true);
+					}
+				}
+
+				// ####### 2. Purify each and every file #######
+				var outputDir = new DirectoryInfo(OutputFolder);
+				foreach (var file in outputDir.EnumerateFiles("*.*", SearchOption.AllDirectories))
+				{
+					PurifyFile(file.FullName);
+				}
 			}, _ => IsOutputFolderEmpty() && DoesOutputFolderExist());
 
 			// initially, set the values from the config
@@ -130,7 +159,15 @@ namespace ProjectPurifier.ViewModel
 
 	    private bool IsOutputFolderEmpty()
 	    {
-			return string.IsNullOrWhiteSpace(OutputFolder) || !Directory.EnumerateFileSystemEntries(OutputFolder).Any();
+		    try
+		    {
+				return string.IsNullOrWhiteSpace(OutputFolder) || !Directory.EnumerateFileSystemEntries(OutputFolder).Any();
+		    }
+		    catch (Exception ex)
+		    {
+			    Debug.WriteLine(ex);
+			    return false;
+		    }
 		}
 
 	    private bool DoesOutputFolderExist()
@@ -277,6 +314,28 @@ namespace ProjectPurifier.ViewModel
 			    {
 				    return true;
 			    }
+		    }
+		    return false;
+	    }
+
+		// Returns true if the file is to be excluded
+	    private bool IsFileToBeExcluded(string file)
+	    {
+		    foreach (var exclFile in ExcludedFiles)
+		    {
+			    if (exclFile.TheRegex.IsMatch(file))
+				    return true;
+		    }
+		    return false;
+	    }
+
+	    // Returns true if the filter is to be excluded
+	    private bool IsFilterToBeExcluded(string name)
+	    {
+		    foreach (var exclFltr in ExcludedFilters)
+		    {
+			    if (string.Equals(exclFltr.Name.Trim(), name.Trim(), StringComparison.CurrentCultureIgnoreCase))
+				    return true;
 		    }
 		    return false;
 	    }
@@ -432,6 +491,96 @@ namespace ProjectPurifier.ViewModel
 				// Bounds are checked by the while-loop, just add the line if it is visible
 				if (isVisible)
 				{
+					{
+						var match = RegexInclude.Match(curLine);
+						if (match.Success)
+						{
+							if (IsFileToBeExcluded(match.Groups[1].ToString()))
+							{
+								lineIndex += 1;
+								continue;
+							}
+						}
+					}
+					
+					{
+						var match = RegexClInclude.Match(curLine);
+						if (match.Success)
+						{
+							if (IsFileToBeExcluded(match.Groups[1].ToString()))
+							{
+								if (match.Groups[2].ToString() == "/>")
+								{
+									lineIndex += 1;
+									continue;
+								}
+								else
+								{
+									Debug.Assert(match.Groups[2].ToString() == ">");	
+									while (!curLine.Contains(@"</ClInclude>"))
+									{
+										lineIndex += 1;
+										curLine = lines[lineIndex];
+									}
+									lineIndex += 1;
+								}
+								continue;
+							}
+						}
+					}
+
+					{
+						var match = RegexClCompile.Match(curLine);
+						if (match.Success)
+						{
+							if (IsFileToBeExcluded(match.Groups[1].ToString()))
+							{
+								if (match.Groups[2].ToString() == "/>")
+								{
+									lineIndex += 1;
+									continue;
+								}
+								else
+								{
+									Debug.Assert(match.Groups[2].ToString() == ">");	
+									while (!curLine.Contains(@"</ClCompile>"))
+									{
+										lineIndex += 1;
+										curLine = lines[lineIndex];
+									}
+									lineIndex += 1;
+								}
+								continue;
+							}
+						}
+					}
+
+					{
+						var match = RegexFilter.Match(curLine);
+						if (match.Success)
+						{
+							if (IsFilterToBeExcluded(match.Groups[1].ToString()))
+							{
+								if (match.Groups[2].ToString() == "/>")
+								{
+									lineIndex += 1;
+									continue;
+								}
+								else
+								{
+									Debug.Assert(match.Groups[2].ToString() == ">");	
+									while (!curLine.Contains(@"</Filter>"))
+									{
+										lineIndex += 1;
+										curLine = lines[lineIndex];
+									}
+									lineIndex += 1;
+								}
+								continue;
+							}
+						}
+					}
+
 					sb.AppendLine(curLine);
 				}
 				lineIndex += 1;
@@ -453,12 +602,16 @@ namespace ProjectPurifier.ViewModel
 			try
 			{
 				Purifier = new Purifier(Defines);
-				var inputLines = File.ReadAllLines(InspectionFile);
+				var inputLines = File.ReadAllLines(filepath);
 
 				var sb = new StringBuilder();
 				var idx = HandleRegion(inputLines, 0, true, sb, true);
 				Debug.Assert(idx == inputLines.Length);
-				ProcessedFilecontents = sb.ToString();
+
+				using (var sw = new StreamWriter(filepath))
+				{
+					sw.WriteLine(sb.ToString()); 
+				}
 			}
 			catch (Exception ex)
 			{
