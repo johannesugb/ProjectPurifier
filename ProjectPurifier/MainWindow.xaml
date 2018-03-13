@@ -64,6 +64,27 @@
 
 				<Separator Margin="20,4,1,4"/>
 
+				<TextBlock Text="Special Purifier #ifs" Margin="20,2,0,0" FontWeight="Bold" Foreground="LightSeaGreen" Background="#EEEEEE" Padding="2"/>
+				<Grid Margin="28,2,0,10">
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="Auto" />
+						<ColumnDefinition Width="Auto" />
+						<ColumnDefinition Width="*" />
+					</Grid.ColumnDefinitions>
+					<Grid.RowDefinitions>
+						<RowDefinition Height="Auto" />
+						<RowDefinition Height="Auto" />
+					</Grid.RowDefinitions>
+					<TextBlock Grid.Column="0" Grid.Row="0" Text="#if " FontWeight="Bold" Foreground="DarkGray" Margin="1"/>
+					<TextBlock Grid.Column="1" Grid.Row="0" Text="__PURIFIER_DELETE_ALWAYS__" FontWeight="Bold" Foreground="Purple" Margin="1"/>
+					<TextBlock Grid.Column="2" Grid.Row="0" Text="Will never be in output." FontStyle="Italic" Margin="5,1,1,1" Foreground="DodgerBlue"/>
+					<TextBlock Grid.Column="0" Grid.Row="1" Text="#if " FontWeight="Bold" Foreground="DarkGray" Margin="1"/>
+					<TextBlock Grid.Column="1" Grid.Row="1" Text="__PURIFIER_INCLUDE_ALWAYS__" FontWeight="Bold" Foreground="Purple" Margin="1"/>
+					<TextBlock Grid.Column="2" Grid.Row="1" Text="Will always be included in output." FontStyle="Italic" Margin="5,1,1,1" Foreground="DodgerBlue"/>
+				</Grid>
+
+				<Separator Margin="20,4,1,4"/>
+
 				<TextBlock Text="#defines" Margin="20,2,0,0" FontWeight="Bold" Foreground="DarkGray" Background="#EEEEEE" Padding="2"/>
 				<ItemsControl Margin="28,2,0,10" ItemsSource="{Binding Defines}" Grid.IsSharedSizeScope="True">
 					<ItemsControl.ItemTemplate>

@@ -25,7 +25,7 @@ namespace ProjectPurifier.ViewModel
 	    static readonly Regex RegexDefine = new Regex(@"^\s*#define\s+([\w]+)\s+(.*)", RegexOptions.Compiled);
 	    static readonly Regex RegexFuncMacro =  new Regex(@"^\s*#define\s+(\w+)\s*\((.*)\)\s+(.*)", RegexOptions.Compiled);
 		static readonly Regex RegexIf = new Regex(@"^\s*#if\s+(.*)", RegexOptions.Compiled);
-		static readonly Regex RegexElse = new Regex(@"^\s*#else\s+(.*)", RegexOptions.Compiled);
+		static readonly Regex RegexElse = new Regex(@"^\s*#else\s*", RegexOptions.Compiled);
 		static readonly Regex RegexElif = new Regex(@"^\s*#elif\s+(.*)", RegexOptions.Compiled);
 		static readonly Regex RegexEndif = new Regex(@"^\s*#endif\s*", RegexOptions.Compiled);
 		static readonly Regex RegexIfdef = new Regex(@"^\s*#ifdef\s+(.*)", RegexOptions.Compiled);
@@ -262,7 +262,16 @@ namespace ProjectPurifier.ViewModel
 		/// <returns>true if one of the Defines is contained in the macroDefinition</returns>
 		private bool IsPurificationRelevantMacro(string macroDefinition)
 	    {
-		    foreach (var defineVm in Defines)
+		    if (macroDefinition.Contains(Purifier.SpecialPurificationCommandInvisible))
+		    {
+			    return true;
+		    }
+		    if (macroDefinition.Contains(Purifier.SpecialPurificationCommandVisible))
+		    {
+			    return true;
+		    }
+
+			foreach (var defineVm in Defines)
 		    {
 			    if (macroDefinition.Contains(defineVm.Name))
 			    {
@@ -281,9 +290,17 @@ namespace ProjectPurifier.ViewModel
 		/// <param name="isVisible">whether or not this current #if's contents are to be included in the output or not</param>
 		/// <param name="mustEvaluate">whether or not to evaluate the purifier-checks, true => do!</param>
 		/// <param name="sb">The StringBuilder which builds the output file</param>
+		/// <param name="indent">Only used for debug purposes</param>
 		/// <returns></returns>
-		private int HandleRegion(string[] lines, int lineIndex, bool isVisible, StringBuilder sb)
+		private int HandleRegion(string[] lines, int lineIndex, bool isVisible, StringBuilder sb, string indent = "")
 	    {
+			#if DEBUG
+		    if (lineIndex > 0)
+		    {
+			    Debug.WriteLine($"{indent}Handle sub-region of: {lines[lineIndex-1]}");
+		    }
+			#endif
+
 			while (lineIndex < lines.Length)
 			{
 				var curLine = lines[lineIndex];
@@ -293,8 +310,10 @@ namespace ProjectPurifier.ViewModel
 					var match = RegexIf.Match(curLine);
 					if (match.Success)
 					{
+						Debug.WriteLine($"{indent}#if matches");
 						var expr = match.Groups[1].ToString();
-						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible ? (IsPurificationRelevantMacro(expr) ? Purifier.EvaluateBooleanExpression(expr) : true) : false, sb);
+						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible ? (IsPurificationRelevantMacro(expr) ? Purifier.EvaluateBooleanExpression(expr) : true) : false, sb, indent + "    ");
+						continue;
 					}
 				}
 				//  1b) #ifdef
@@ -302,8 +321,10 @@ namespace ProjectPurifier.ViewModel
 					var match = RegexIfdef.Match(curLine);
 					if (match.Success)
 					{
+						Debug.WriteLine($"{indent}#ifdef matches");
 						var expr = match.Groups[1].ToString();
-						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible ? (IsPurificationRelevantMacro(expr) ? Purifier.EvaluateBooleanExpression(expr) : true) : false, sb);
+						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible ? (IsPurificationRelevantMacro(expr) ? Purifier.EvaluateBooleanExpression(expr) : true) : false, sb, indent + "    ");
+						continue;
 					}
 				}
 				//  1c) #ifndef
@@ -311,8 +332,10 @@ namespace ProjectPurifier.ViewModel
 					var match = RegexIf.Match(curLine);
 					if (match.Success)
 					{
+						Debug.WriteLine($"{indent}#ifndef matches");
 						var expr = match.Groups[1].ToString();
-						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible ? (IsPurificationRelevantMacro(expr) ? !Purifier.EvaluateBooleanExpression(expr) : true) : false, sb);
+						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible ? (IsPurificationRelevantMacro(expr) ? !Purifier.EvaluateBooleanExpression(expr) : true) : false, sb, indent + "    ");
+						continue;
 					}
 				}
 			    
@@ -321,8 +344,10 @@ namespace ProjectPurifier.ViewModel
 					var match = RegexElif.Match(curLine);
 					if (match.Success)
 					{
+						Debug.WriteLine($"{indent}#elif matches");
 						var expr = match.Groups[1].ToString();
-						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible ? (IsPurificationRelevantMacro(expr) ? Purifier.EvaluateBooleanExpression(expr) : true) : false, sb);
+						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible ? (IsPurificationRelevantMacro(expr) ? Purifier.EvaluateBooleanExpression(expr) : true) : false, sb, indent + "    ");
+						continue;
 					}
 				}
 
@@ -331,7 +356,10 @@ namespace ProjectPurifier.ViewModel
 					var match = RegexElse.Match(curLine);
 					if (match.Success)
 					{
+						Debug.WriteLine($"{indent}#else matches");
 						lineIndex += 1;
+						isVisible = !isVisible;
+						continue;
 					}
 				}
 
@@ -340,7 +368,8 @@ namespace ProjectPurifier.ViewModel
 					var match = RegexEndif.Match(curLine);
 					if (match.Success)
 					{
-						lineIndex += 1;
+						Debug.WriteLine($"{indent}#endif matches");
+						return lineIndex + 1;
 					}
 				}
 
@@ -349,7 +378,8 @@ namespace ProjectPurifier.ViewModel
 				{
 					sb.AppendLine(curLine);
 				}
-		    }
+				lineIndex += 1;
+			}
 		    return lines.Length;
 	    }
 
@@ -370,51 +400,8 @@ namespace ProjectPurifier.ViewModel
 				var inputLines = File.ReadAllLines(InspectionFile);
 
 				var sb = new StringBuilder();
-				int idx = 0;
-				while (idx < inputLines.Length)
-				{
-					var inputLine = inputLines[idx];
-
-					// Handle the "starting" cases of a block and one-liner-cases:
-
-					{ // Handle #include, which are a one-liners
-						var match = RegexInclude.Match(inputLine);
-						if (match.Success)
-						{
-							bool exclude = false;
-							foreach (var excludedFileVm in ExcludedFiles)
-							{
-								if (match.Groups[1].ToString().Contains(excludedFileVm.Value))
-								{
-									exclude = true;
-									break;
-								}
-							}
-							if (exclude)
-							{
-								continue;
-							}
-						}
-					}
-
-					{ // Handle #if
-						var match = RegexIf.Match(inputLine);
-						if (match.Success && IsPurificationRelevantMacro(match.Groups[1].ToString()))
-						{
-							if (Purifier.EvaluateBooleanExpression(match.Groups[1].ToString()))
-							{
-								idx = HandleRegion(inputLines, idx, true, sb);
-							}
-							else
-							{
-								idx = HandleRegion(inputLines, idx, false, sb);
-							}
-						}
-					}
-					
-					// no regex matched => treat it as a normal line
-					sb.AppendLine(inputLine);
-				}
+				var idx = HandleRegion(inputLines, 0, true, sb);
+				Debug.Assert(idx == inputLines.Length);
 				ProcessedFilecontents = sb.ToString();
 			}
 			catch (Exception ex)

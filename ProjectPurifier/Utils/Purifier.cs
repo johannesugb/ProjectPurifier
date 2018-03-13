@@ -15,8 +15,12 @@ namespace ProjectPurifier.Utils
 {
 	class Purifier
 	{
+		public const string SpecialPurificationCommandVisible = "__PURIFIER_INCLUDE_ALWAYS__";
+		public const string SpecialPurificationCommandInvisible = "__PURIFIER_DELETE_ALWAYS__";
+
 		static readonly Regex RegexDefineAssignment =  new Regex(@"#define (\w+)\s+(\w+)", RegexOptions.Compiled);
 		static readonly Regex RegexFuncMacro =  new Regex(@"(\w+)\s*\((.*)\)\s+(.*)", RegexOptions.Compiled);
+		static readonly Regex RegexDefined = new Regex(@"(.*?)defined\s*?\((.+?)\)\s*?(.*)", RegexOptions.Compiled);
 		private Dictionary<string, DefineVM> _definesDict;
 		private string _definitions_code;
 		private string _helper_functions_code;
@@ -110,6 +114,32 @@ namespace ProjectPurifier.Utils
 
 		public bool EvaluateBooleanExpression(string expression)
 		{
+			if (expression.Contains(Purifier.SpecialPurificationCommandInvisible))
+			{
+				return false;
+			}
+			if (expression.Contains(Purifier.SpecialPurificationCommandVisible))
+			{
+				return true;
+			}
+
+			// replace all defined() commands
+
+			while(true)
+			{
+				var match = RegexDefined.Match(expression);
+				if (match.Success)
+				{
+					expression = match.Groups[0].ToString()
+					             + _definesDict.ContainsKey(match.Groups[1].ToString()).ToString()
+					             + match.Groups[2].ToString();
+				}
+				else
+				{
+					break;
+				}
+			} 
+
 			string[] codeVariants = new[]
 			{
 				@"using System;
@@ -189,7 +219,7 @@ namespace ProjectPurifier.Utils
 				}
 				catch (Exception ex)
 				{
-					Debug.WriteLine("Exception while trying bool-version: " + ex.Message);
+					//Debug.WriteLine("Exception while trying bool-version: " + ex.Message);
 				}
 
 				if (null != methodInfo)
