@@ -130,9 +130,9 @@ namespace ProjectPurifier.Utils
 				var match = RegexDefined.Match(expression);
 				if (match.Success)
 				{
-					expression = match.Groups[0].ToString()
-					             + _definesDict.ContainsKey(match.Groups[1].ToString()).ToString()
-					             + match.Groups[2].ToString();
+					expression = match.Groups[1].ToString()
+					             + (_definesDict.ContainsKey(match.Groups[2].ToString()) ? "true" : "false")
+					             + match.Groups[3].ToString();
 				}
 				else
 				{

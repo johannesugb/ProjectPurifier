@@ -289,10 +289,11 @@ namespace ProjectPurifier.ViewModel
 		/// <param name="lineIndex">current line index</param>
 		/// <param name="isVisible">whether or not this current #if's contents are to be included in the output or not</param>
 		/// <param name="mustEvaluate">whether or not to evaluate the purifier-checks, true => do!</param>
+		/// <param name="printEndToken">whether or not to print the #elif, #else or #endif to the StringBuilder</param>
 		/// <param name="sb">The StringBuilder which builds the output file</param>
 		/// <param name="indent">Only used for debug purposes</param>
 		/// <returns></returns>
-		private int HandleRegion(string[] lines, int lineIndex, bool isVisible, StringBuilder sb, string indent = "")
+		private int HandleRegion(string[] lines, int lineIndex, bool isVisible, StringBuilder sb, bool printEndToken, string indent = "")
 	    {
 			#if DEBUG
 		    if (lineIndex > 0)
@@ -312,7 +313,18 @@ namespace ProjectPurifier.ViewModel
 					{
 						Debug.WriteLine($"{indent}#if matches");
 						var expr = match.Groups[1].ToString();
-						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible ? (IsPurificationRelevantMacro(expr) ? Purifier.EvaluateBooleanExpression(expr) : true) : false, sb, indent + "    ");
+						if (IsPurificationRelevantMacro(expr))
+						{
+							lineIndex = HandleRegion(lines, lineIndex + 1, isVisible && Purifier.EvaluateBooleanExpression(expr), sb, false, indent + "    ");
+						}
+						else
+						{
+							if (isVisible)
+							{
+								sb.AppendLine(curLine);
+							}
+							lineIndex = HandleRegion(lines, lineIndex + 1, isVisible, sb, true, indent + "    ");
+						}
 						continue;
 					}
 				}
@@ -323,18 +335,40 @@ namespace ProjectPurifier.ViewModel
 					{
 						Debug.WriteLine($"{indent}#ifdef matches");
 						var expr = match.Groups[1].ToString();
-						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible ? (IsPurificationRelevantMacro(expr) ? Purifier.EvaluateBooleanExpression(expr) : true) : false, sb, indent + "    ");
+						if (IsPurificationRelevantMacro(expr))
+						{
+							lineIndex = HandleRegion(lines, lineIndex + 1, isVisible && Purifier.EvaluateBooleanExpression(expr), sb, false, indent + "    ");
+						}
+						else
+						{
+							if (isVisible)
+							{
+								sb.AppendLine(curLine);
+							}
+							lineIndex = HandleRegion(lines, lineIndex + 1, isVisible, sb, true, indent + "    ");
+						}
 						continue;
 					}
 				}
 				//  1c) #ifndef
 				{
-					var match = RegexIf.Match(curLine);
+					var match = RegexIfndef.Match(curLine);
 					if (match.Success)
 					{
 						Debug.WriteLine($"{indent}#ifndef matches");
 						var expr = match.Groups[1].ToString();
-						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible ? (IsPurificationRelevantMacro(expr) ? !Purifier.EvaluateBooleanExpression(expr) : true) : false, sb, indent + "    ");
+						if (IsPurificationRelevantMacro(expr))
+						{
+							lineIndex = HandleRegion(lines, lineIndex + 1, isVisible && !Purifier.EvaluateBooleanExpression(expr), sb, false, indent + "    ");
+						}
+						else
+						{
+							if (isVisible)
+							{
+								sb.AppendLine(curLine);
+							}
+							lineIndex = HandleRegion(lines, lineIndex + 1, isVisible, sb, true, indent + "    ");
+						}
 						continue;
 					}
 				}
@@ -346,7 +380,18 @@ namespace ProjectPurifier.ViewModel
 					{
 						Debug.WriteLine($"{indent}#elif matches");
 						var expr = match.Groups[1].ToString();
-						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible ? (IsPurificationRelevantMacro(expr) ? Purifier.EvaluateBooleanExpression(expr) : true) : false, sb, indent + "    ");
+						if (IsPurificationRelevantMacro(expr))
+						{
+							return HandleRegion(lines, lineIndex + 1, isVisible && Purifier.EvaluateBooleanExpression(expr), sb, false, indent + "    ");
+						}
+						else
+						{
+							if (isVisible)
+							{
+								sb.AppendLine(curLine);
+							}
+							return HandleRegion(lines, lineIndex + 1, isVisible, sb, true, indent + "    ");
+						}
 						continue;
 					}
 				}
@@ -358,7 +403,14 @@ namespace ProjectPurifier.ViewModel
 					{
 						Debug.WriteLine($"{indent}#else matches");
 						lineIndex += 1;
-						isVisible = !isVisible;
+						if (printEndToken && isVisible)
+						{
+							sb.AppendLine(curLine);
+						}
+						if (!printEndToken)
+						{
+							isVisible = !isVisible;
+						}
 						continue;
 					}
 				}
@@ -369,6 +421,10 @@ namespace ProjectPurifier.ViewModel
 					if (match.Success)
 					{
 						Debug.WriteLine($"{indent}#endif matches");
+						if (printEndToken && isVisible)
+						{
+							sb.AppendLine(curLine);
+						}
 						return lineIndex + 1;
 					}
 				}
@@ -400,7 +456,7 @@ namespace ProjectPurifier.ViewModel
 				var inputLines = File.ReadAllLines(InspectionFile);
 
 				var sb = new StringBuilder();
-				var idx = HandleRegion(inputLines, 0, true, sb);
+				var idx = HandleRegion(inputLines, 0, true, sb, true);
 				Debug.Assert(idx == inputLines.Length);
 				ProcessedFilecontents = sb.ToString();
 			}
