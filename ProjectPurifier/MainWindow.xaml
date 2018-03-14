@@ -4,13 +4,17 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ProjectPurifier"
+		xmlns:converter="clr-namespace:ProjectPurifier.Converter"
         mc:Ignorable="d"
         Title="MainWindow" Height="800" Width="1000">
+	<Window.Resources>
+		<converter:BoolToCollapsedConverter x:Key="BoolVisiConv"/>
+	</Window.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" MinWidth="400" />
             <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="*" MinWidth="400" />
+            <ColumnDefinition Width="*" MinWidth="50" />
         </Grid.ColumnDefinitions>
 		<Grid.RowDefinitions>
 			<RowDefinition Height="Auto"/>
@@ -19,14 +23,8 @@
 		</Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Vertical" HorizontalAlignment="Stretch" Margin="6">
-            <TextBlock Text="Input-Folders:" HorizontalAlignment="Stretch"/>
-            <Grid>
-                <TextBox Text="{Binding InputFolders}" TextWrapping="Wrap" AcceptsReturn="True" Padding="2" Margin="1"
-						 x:Name="TbInputFolders" Height="50" />
-            </Grid>
-
-			<TextBlock Text="Purifier config (e.g. purifier_config.h):" Margin="20,2,0,0"/>
-            <Grid Margin="20,0,0,0">
+			<TextBlock Text="Purifier config file (e.g. purifier_config.h):" Margin="0,2,0,0"/>
+            <Grid Margin="0,0,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
@@ -36,13 +34,13 @@
                         Command="{Binding RefreshTextbox}" CommandParameter="{Binding ElementName=TbPurifierConfigFile}"/>
             </Grid>
 
-			<Separator Margin="20,4,1,4"/>
+			<Separator Margin="0,4,1,4"/>
 		</StackPanel>
 		
 		<ScrollViewer Grid.Row="1" Grid.Column="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" HorizontalAlignment="Stretch">
 			<StackPanel  Orientation="Vertical" Margin="6">
 				
-				<TextBlock Text="Errors" Margin="20,2,0,0" FontWeight="Bold" Foreground="IndianRed" Background="#EEEEEE" Padding="2"/>
+				<TextBlock Text="Errors" Margin="0,2,0,0" FontWeight="Bold" Foreground="IndianRed" Background="#EEEEEE" Padding="2"/>
 				<ItemsControl Margin="28,2,0,10" ItemsSource="{Binding Errors}" Grid.IsSharedSizeScope="True">
 					<ItemsControl.ItemTemplate>
 						<DataTemplate>
@@ -53,9 +51,9 @@
 					</ItemsControl.ItemTemplate>
 				</ItemsControl>
 
-				<Separator Margin="20,4,1,4"/>
+				<Separator Margin="0,4,1,4"/>
 				
-				<TextBlock Text="Files to exclude" Margin="20,2,0,0" FontWeight="Bold" Foreground="DimGray" Background="#EEEEEE" Padding="2"/>
+				<TextBlock Text="Files to exclude" Margin="0,2,0,0" FontWeight="Bold" Foreground="DimGray" Background="#EEEEEE" Padding="2"/>
 				<ItemsControl Margin="28,2,0,10" ItemsSource="{Binding ExcludedFiles}" Grid.IsSharedSizeScope="True">
 					<ItemsControl.ItemTemplate>
 						<DataTemplate>
@@ -71,10 +69,10 @@
 					</ItemsControl.ItemTemplate>
 				</ItemsControl>
 
-				<Separator Margin="20,4,1,4"/>
+				<Separator Margin="0,4,1,4"/>
 
 
-				<TextBlock Text="Filters to exclude" Margin="20,2,0,0" FontWeight="Bold" Foreground="DarkOrange" Background="#EEEEEE" Padding="2"/>
+				<TextBlock Text="Filters to exclude" Margin="0,2,0,0" FontWeight="Bold" Foreground="DarkOrange" Background="#EEEEEE" Padding="2"/>
 				<ItemsControl Margin="28,2,0,10" ItemsSource="{Binding ExcludedFilters}">
 					<ItemsControl.ItemTemplate>
 						<DataTemplate>
@@ -83,9 +81,9 @@
 					</ItemsControl.ItemTemplate>
 				</ItemsControl>
 
-				<Separator Margin="20,4,1,4"/>
+				<Separator Margin="0,4,1,4"/>
 
-				<TextBlock Text="Special Purifier #ifs" Margin="20,2,0,0" FontWeight="Bold" Foreground="LightSeaGreen" Background="#EEEEEE" Padding="2"/>
+				<TextBlock Text="Special Purifier #ifs" Margin="0,2,0,0" FontWeight="Bold" Foreground="LightSeaGreen" Background="#EEEEEE" Padding="2"/>
 				<Grid Margin="28,2,0,10">
 					<Grid.ColumnDefinitions>
 						<ColumnDefinition Width="Auto" />
@@ -104,9 +102,9 @@
 					<TextBlock Grid.Column="2" Grid.Row="1" Text="Will always be included in output." FontStyle="Italic" Margin="5,1,1,1" Foreground="DodgerBlue"/>
 				</Grid>
 
-				<Separator Margin="20,4,1,4"/>
+				<Separator Margin="0,4,1,4"/>
 
-				<TextBlock Text="#defines" Margin="20,2,0,0" FontWeight="Bold" Foreground="DarkGray" Background="#EEEEEE" Padding="2"/>
+				<TextBlock Text="#defines" Margin="0,2,0,0" FontWeight="Bold" Foreground="DarkGray" Background="#EEEEEE" Padding="2"/>
 				<ItemsControl Margin="28,2,0,10" ItemsSource="{Binding Defines}" Grid.IsSharedSizeScope="True">
 					<ItemsControl.ItemTemplate>
 						<DataTemplate>
@@ -122,27 +120,55 @@
 					</ItemsControl.ItemTemplate>
 				</ItemsControl>
 
-				<Separator Margin="20,4,1,4"/>
+				<Separator Margin="0,4,1,4"/>
 
 			</StackPanel>
 		</ScrollViewer>
-		
-		<StackPanel Grid.Row="2" Grid.Column="0" Orientation="Vertical" Margin="6" HorizontalAlignment="Stretch">
-			<TextBlock Text="Output-Folder:" Margin="0,8,0,0"/>
-            <Grid Margin="0,0,0,0">
-                <TextBox Text="{Binding OutputFolder}" Padding="2" x:Name="TbOutputFolder" Margin="1" />
-            </Grid>
-            
-            <Button Padding="2" Margin="0,8" Content="JUST... DO IT!"
-                    Command="{Binding JustDoIt}"/>
-        </StackPanel>
 
-		<GridSplitter Grid.Column="1" Grid.RowSpan="3" Width="6" 
+		<Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Margin="6,12">
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="*"/>
+				<ColumnDefinition Width="*"/>
+			</Grid.ColumnDefinitions>
+			<Grid.RowDefinitions>
+				<RowDefinition Height="Auto"/>
+				<RowDefinition Height="Auto"/>
+			</Grid.RowDefinitions>
+
+			<StackPanel Grid.Column="0" Orientation="Vertical" HorizontalAlignment="Stretch">
+				<TextBlock Text="Input-Items:" HorizontalAlignment="Stretch"/>
+				<Grid>
+					<TextBox Text="{Binding InputFolders}" TextWrapping="Wrap" AcceptsReturn="True" Padding="2" Margin="1"
+					         x:Name="TbInputFolders" Height="75" />
+				</Grid>
+
+			</StackPanel>
+
+			<StackPanel Grid.Column="1" Orientation="Vertical"  HorizontalAlignment="Stretch">
+				<TextBlock Text="(aligned) Output-Items:" />
+				<Grid Margin="0,0,0,0">
+					<TextBox Text="{Binding OutputFolder}"  TextWrapping="Wrap" AcceptsReturn="True" Padding="2" Margin="1"
+							 x:Name="TbOutputFolder" Height="75" />
+				</Grid>
+			</StackPanel>
+
+			<Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" >
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition Width="Auto"/>
+					<ColumnDefinition Width="*"/>
+				</Grid.ColumnDefinitions>
+				<Button Grid.Column="0" Content="Refresh" Padding="2" Margin="1"
+				        Command="{Binding RefreshTextbox}" CommandParameter="{Binding ElementName=TbOutputFolder}"/>
+				<Button Grid.Column="1" Padding="2" Margin="1" Content="JUST... DO IT!" Command="{Binding JustDoIt}"/>
+			</Grid>
+		</Grid>
+		
+		<GridSplitter Grid.Column="1" Grid.RowSpan="2" Width="6"  Margin="12,0,6,0"
 					  ResizeDirection="Columns"
 		              ResizeBehavior="PreviousAndNext"
 		              HorizontalAlignment="Stretch"/>
 
-		<Grid Grid.Column="2" Grid.RowSpan="3" Margin="6">
+		<Grid Grid.Column="2" Grid.RowSpan="2" Margin="6">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -166,7 +192,12 @@
                      VerticalScrollBarVisibility="Auto"
                      Text="{Binding ProcessedFilecontents}"/>
         </Grid>
-        
+
+		<Grid Grid.Row="0" Grid.Column="0" Grid.RowSpan="3" Grid.ColumnSpan="3" Visibility="{Binding CurrentlyPurifying, Converter={StaticResource BoolVisiConv}, FallbackValue=Collapsed}">
+			<Rectangle Fill="#88FF8C00"></Rectangle>
+			<TextBlock VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="40" FontWeight="Bold" Foreground="White" Text="Purifying..." />
+		</Grid>
+		
     </Grid>
 </Window>
 

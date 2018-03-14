@@ -54,6 +54,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="Converter\BoolToCollapsedConverter.cs" />
     <Compile Include="Utils\Combinatorics.cs" />
     <Compile Include="Utils\Purifier.cs" />
     <Compile Include="ViewModel\BindableBase.cs" />

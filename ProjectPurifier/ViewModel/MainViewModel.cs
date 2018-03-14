@@ -40,6 +40,7 @@ namespace ProjectPurifier.ViewModel
 		private string _outputFolder;
 	    private string _inspectionFile;
 	    private string _processedFilecontents;
+	    private bool _currentlyPurifying;
 	    public ObservableCollection<ExcludedFileVM> ExcludedFiles { get; } = new ObservableCollection<ExcludedFileVM>();
 	    public ObservableCollection<ExcludedFilterVM> ExcludedFilters { get; } = new ObservableCollection<ExcludedFilterVM>();
 	    public ObservableCollection<DefineVM> Defines { get; } = new ObservableCollection<DefineVM>();
@@ -96,11 +97,26 @@ namespace ProjectPurifier.ViewModel
 				Settings.Default.FileToInspectLastValue = value;
 				Settings.Default.Save();
 				FireAllCanExecuteChanged();
-				PurifyFile(_inspectionFile);
+				try
+				{
+					Purifier = new Purifier(Defines);
+					var sb = GetPurified(File.ReadAllLines(_inspectionFile));
+					ProcessedFilecontents = sb.ToString();
+				}
+				catch (Exception ex)
+				{
+					Debug.WriteLine(ex.Message);
+				}
 			}
 		}
 
-	    public string ProcessedFilecontents
+	    public bool CurrentlyPurifying
+	    {
+		    get => _currentlyPurifying;
+			set => SetProperty(ref _currentlyPurifying, value);
+	    }
+		
+		public string ProcessedFilecontents
 		{
 		    get => _processedFilecontents;
 			set
@@ -121,34 +137,109 @@ namespace ProjectPurifier.ViewModel
 
 			JustDoIt = new DelegateCommand(_ =>
 			{
-				// ####### 1. Copy all the files #######
-				var inputFolders = InputFolders.Split(new[] {Environment.NewLine}, StringSplitOptions.RemoveEmptyEntries);
-				foreach (var inputFolder in inputFolders)
+				var inputItems = InputFolders.Split(new[] {Environment.NewLine}, StringSplitOptions.RemoveEmptyEntries);
+				var outputItems = OutputFolder.Split(new[] {Environment.NewLine}, StringSplitOptions.RemoveEmptyEntries);
+				// ###### 0. Check if input and output could match ######
+				if (inputItems.Length != outputItems.Length)
 				{
-					var inputDirInfo = new DirectoryInfo(inputFolder);
-					var destinationPath = Path.Combine(OutputFolder, inputDirInfo.Name);
+					MessageBox.Show("There must be as many output-items as there are output-items! Aborting...");
+					return;
+				}
 
-					//Now Create all of the directories
-					Directory.CreateDirectory(destinationPath);
-					foreach (string dirPath in Directory.GetDirectories(inputFolder, "*", SearchOption.AllDirectories))
+				// ####### 1. See if the files/folders exist and delete them #######
+				string existingItems = string.Empty;
+				foreach (var outputItem in outputItems)
+				{
+					if (Directory.Exists(outputItem))
 					{
-						Directory.CreateDirectory(dirPath.Replace(inputFolder, destinationPath));
+						existingItems += new DirectoryInfo(outputItem).Name + Environment.NewLine;
 					}
-
-					//Copy all the files & Replaces any files with the same name
-					foreach (string newPath in Directory.GetFiles(inputFolder, "*.*", SearchOption.AllDirectories))
+					if (File.Exists(outputItem))
 					{
-						File.Copy(newPath, newPath.Replace(inputFolder, destinationPath), true);
+						existingItems += new FileInfo(outputItem).Name + Environment.NewLine;
+					}
+				}
+				if (!string.IsNullOrEmpty(existingItems))
+				{
+					var mbres = MessageBox.Show("The following output files/directories already exist:" + Environment.NewLine +
+											    existingItems +
+												"If we proceed, they will be deleted!", "Delete existing items", MessageBoxButton.OKCancel);
+					if (mbres == MessageBoxResult.OK)
+					{
+						foreach (var outputItem in outputItems)
+						{
+							if (Directory.Exists(outputItem))
+							{
+								Directory.Delete(outputItem, true);
+							}
+							if (File.Exists(outputItem))
+							{
+								File.Delete(outputItem);
+							}
+						}
+					}
+					else
+					{
+						return;
 					}
 				}
 
-				// ####### 2. Purify each and every file #######
-				var outputDir = new DirectoryInfo(OutputFolder);
-				foreach (var file in outputDir.EnumerateFiles("*.*", SearchOption.AllDirectories))
+				CurrentlyPurifying = true;
+				Dispatcher.CurrentDispatcher.Invoke(delegate
 				{
-					PurifyFile(file.FullName);
-				}
-			}, _ => IsOutputFolderEmpty() && DoesOutputFolderExist());
+					try
+					{
+						// ####### 2. Copy all the files and folders #######
+						for (int i=0; i < inputItems.Length; ++i)
+						{
+							var inputItem = inputItems[i];
+							var outputItem = outputItems[i];
+
+							if (Directory.Exists(inputItem))
+							{
+								Directory.CreateDirectory(outputItem);
+
+								//Copy all the files & Replaces any files with the same name
+								foreach (string filepath in Directory.GetFiles(inputItem, "*.*", SearchOption.AllDirectories))
+								{
+									// check if it is an excluded file
+									if (IsFileToBeExcluded(filepath))
+									{
+										continue;
+									}
+
+									var destination = filepath.Replace(inputItem, outputItem);
+									
+									var fileInfoOut = new FileInfo(destination);
+									Directory.CreateDirectory(fileInfoOut.DirectoryName);
+
+									File.Copy(filepath, destination, true);
+									// ####### 3. Purify each and every file #######
+									if (!PurifyFile(destination))
+										throw new Exception("PurifyFile failed");
+								}
+							}
+							else if (File.Exists(inputItem))
+							{
+								if (!IsFileToBeExcluded(inputItem))
+								{
+									File.Copy(inputItem, outputItem, true);
+									// ####### 3. Purify each and every file #######
+									if (!PurifyFile(outputItem))
+										throw new Exception("PurifyFile failed");
+								}
+							}							
+						}
+						
+						CurrentlyPurifying = false;
+					}
+					catch (Exception ex)
+					{
+						Debug.WriteLine(ex);
+						CurrentlyPurifying = false;
+					}
+				}, DispatcherPriority.ContextIdle);
+			}, _ => !string.IsNullOrWhiteSpace(OutputFolder));
 
 			// initially, set the values from the config
 		    InputFolders = Settings.Default.InputFoldersLastValue;
@@ -592,31 +683,42 @@ namespace ProjectPurifier.ViewModel
 		/// Walk through the given file, line by line, and purify it!
 		/// </summary>
 		/// <param name="filepath">Path to the file to be purified</param>
-	    public void PurifyFile(string filepath)
+	    public bool PurifyFile(string filepath)
 		{
 			if (string.IsNullOrWhiteSpace(filepath) || !File.Exists(filepath))
 			{
-				return;
+				return false;
 			}
 
 			try
 			{
 				Purifier = new Purifier(Defines);
 				var inputLines = File.ReadAllLines(filepath);
-
-				var sb = new StringBuilder();
-				var idx = HandleRegion(inputLines, 0, true, sb, true);
-				Debug.Assert(idx == inputLines.Length);
-
+				var sb = GetPurified(inputLines);
 				using (var sw = new StreamWriter(filepath))
 				{
 					sw.WriteLine(sb.ToString()); 
 				}
+
+				return true;
 			}
 			catch (Exception ex)
 			{
 				MessageBox.Show(ex.Message);
+				return false;
 			}
 		}
+
+		/// <summary>
+		/// Walk through the given file, line by line, and purify it!
+		/// </summary>
+		/// <param name="inputLines">Source of the file, line by line</param>
+		public StringBuilder GetPurified(string[] inputLines)
+	    {
+			var sb = new StringBuilder();
+		    var idx = HandleRegion(inputLines, 0, true, sb, true);
+		    Debug.Assert(idx == inputLines.Length);
+		    return sb;
+	    }
 	}
 }
