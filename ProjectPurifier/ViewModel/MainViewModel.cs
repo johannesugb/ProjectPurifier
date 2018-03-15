@@ -432,18 +432,93 @@ namespace ProjectPurifier.ViewModel
 	    }
 
 		/// <summary>
+		/// Helper function to evaluate all kinds of ifs
+		/// </summary>
+		/// <param name="lineToMatch">contents of the line to be matched against</param>
+		/// <param name="isPurifierExpression">whether or not the if was a purification-relevant one</param>
+		/// <param name="contentIsVisible">evaluation result of the purifier-relevant expression</param>
+		/// <param name="indent">Only used for debug purposes</param>
+		/// <returns>true if an if could be matched</returns>
+		bool DoesAnyIfMatch(string lineToMatch, out bool isPurifierExpression, out bool contentIsVisible, string indent = "")
+	    {
+		    // gather all if-regexes in one array, second parmeter means: negate expression result yes/no
+		    Tuple<Regex, bool>[] ifs = {
+			    new Tuple<Regex, bool>(RegexIf, false),
+			    new Tuple<Regex, bool>(RegexIfdef, false),
+			    new Tuple<Regex, bool>(RegexIfndef, true),
+		    };
+
+		    foreach (var tuple in ifs)
+		    {
+			    var match = tuple.Item1.Match(lineToMatch);
+			    if (match.Success)
+			    {
+				    Debug.WriteLine($"{indent}{tuple.Item1.ToString()} matches");
+				    var expr = match.Groups[1].ToString();
+				    if (IsPurificationRelevantMacro(expr))
+				    {
+					    var exprResult = Purifier.EvaluateBooleanExpression(expr);
+					    isPurifierExpression = true;
+					    contentIsVisible = tuple.Item2 != exprResult;
+					    return true;
+				    }
+				    else
+				    {
+					    isPurifierExpression = false;
+					    contentIsVisible = true;
+					    return true;
+				    }
+			    }
+		    }
+		    isPurifierExpression = false;
+		    contentIsVisible = true;
+		    return false;
+	    }
+
+		/// <summary>
+		/// Helper function to evaluate elifs
+		/// </summary>
+		/// <param name="lineToMatch">contents of the line to be matched against</param>
+		/// <param name="isPurifierExpression">whether or not the if was a purification-relevant one</param>
+		/// <param name="contentIsVisible">evaluation result of the purifier-relevant expression</param>
+		/// <param name="indent">Only used for debug purposes</param>
+		/// <returns>true if an elif could be matched</returns>
+		bool DoesElifMatch(string lineToMatch, out bool isPurifierExpression, out bool contentIsVisible, string indent = "")
+	    {
+			var match = RegexElif.Match(lineToMatch);
+			if (match.Success)
+			{
+				Debug.WriteLine($"{indent}#elif matches");
+				var expr = match.Groups[1].ToString();
+				if (IsPurificationRelevantMacro(expr))
+				{
+					var exprResult = Purifier.EvaluateBooleanExpression(expr);
+					isPurifierExpression = true;
+					contentIsVisible = exprResult;
+					return true;
+				}
+				else
+				{
+					isPurifierExpression = false;
+					contentIsVisible = true;
+					return true;
+				}
+			}
+		    isPurifierExpression = false;
+		    contentIsVisible = true;
+		    return false;
+		}
+
+		/// <summary>
 		/// Handles block of code or a sub-block of code
-		/// Returns the next index to proceed after it has completed its work.
 		/// </summary>
 		/// <param name="lines">all input lines</param>
 		/// <param name="lineIndex">current line index</param>
-		/// <param name="isVisible">whether or not this current #if's contents are to be included in the output or not</param>
-		/// <param name="mustEvaluate">whether or not to evaluate the purifier-checks, true => do!</param>
-		/// <param name="printEndToken">whether or not to print the #elif, #else or #endif to the StringBuilder</param>
+		/// <param name="isVisible">whether or not the current region's contents are to be included in the output or not</param>
 		/// <param name="sb">The StringBuilder which builds the output file</param>
 		/// <param name="indent">Only used for debug purposes</param>
-		/// <returns></returns>
-		private int HandleRegion(string[] lines, int lineIndex, bool isVisible, StringBuilder sb, bool printEndToken, string indent = "")
+		/// <returns>last line index which has been processed (and possible also added to the StringBuilder)</returns>
+		private int HandleRegion(string[] lines, int lineIndex, bool isVisible, StringBuilder sb, string indent = "")
 	    {
 			#if DEBUG
 		    if (lineIndex > 0)
@@ -451,134 +526,54 @@ namespace ProjectPurifier.ViewModel
 			    Debug.WriteLine($"{indent}Handle sub-region of: {lines[lineIndex-1]}");
 		    }
 			#endif
-
+			
 			while (lineIndex < lines.Length)
 			{
 				var curLine = lines[lineIndex];
-			    // (1)  IFs
-				//  1a) #if
+				if (DoesAnyIfMatch(curLine, out bool isPurifierExpr, out bool contentIsVisi, indent))
 				{
-					var match = RegexIf.Match(curLine);
-					if (match.Success)
+					if (!isPurifierExpr && isVisible)
 					{
-						Debug.WriteLine($"{indent}#if matches");
-						var expr = match.Groups[1].ToString();
-						if (IsPurificationRelevantMacro(expr))
-						{
-							lineIndex = HandleRegion(lines, lineIndex + 1, isVisible && Purifier.EvaluateBooleanExpression(expr), sb, false, indent + "    ");
-						}
-						else
-						{
-							if (isVisible)
-							{
-								sb.AppendLine(curLine);
-							}
-							lineIndex = HandleRegion(lines, lineIndex + 1, isVisible, sb, true, indent + "    ");
-						}
-						continue;
+						sb.AppendLine(curLine);
 					}
-				}
-				//  1b) #ifdef
-				{
-					var match = RegexIfdef.Match(curLine);
-					if (match.Success)
+					lineIndex = HandleRegion(lines, lineIndex + 1, isVisible && (!isPurifierExpr || contentIsVisi), sb, indent + "    ");
+					curLine = lines[lineIndex];
+					var elseVisible = isVisible && (!isPurifierExpr || !contentIsVisi);
+					while (DoesElifMatch(curLine, out bool elifIsPurifierExpr, out bool elifContentIsVisi, indent))
 					{
-						Debug.WriteLine($"{indent}#ifdef matches");
-						var expr = match.Groups[1].ToString();
-						if (IsPurificationRelevantMacro(expr))
+						if (!isPurifierExpr && elseVisible)
 						{
-							lineIndex = HandleRegion(lines, lineIndex + 1, isVisible && Purifier.EvaluateBooleanExpression(expr), sb, false, indent + "    ");
+							sb.AppendLine(curLine);
 						}
-						else
-						{
-							if (isVisible)
-							{
-								sb.AppendLine(curLine);
-							}
-							lineIndex = HandleRegion(lines, lineIndex + 1, isVisible, sb, true, indent + "    ");
-						}
-						continue;
+						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible && elseVisible && (!isPurifierExpr || elifContentIsVisi), sb, indent + "    ");
+						curLine = lines[lineIndex];
+						elseVisible = isVisible && (!isPurifierExpr || !elifContentIsVisi);
 					}
-				}
-				//  1c) #ifndef
-				{
-					var match = RegexIfndef.Match(curLine);
-					if (match.Success)
+					if (RegexElse.IsMatch(curLine))
 					{
-						Debug.WriteLine($"{indent}#ifndef matches");
-						var expr = match.Groups[1].ToString();
-						if (IsPurificationRelevantMacro(expr))
+						if (!isPurifierExpr && elseVisible)
 						{
-							lineIndex = HandleRegion(lines, lineIndex + 1, isVisible && !Purifier.EvaluateBooleanExpression(expr), sb, false, indent + "    ");
+							sb.AppendLine(curLine);
 						}
-						else
-						{
-							if (isVisible)
-							{
-								sb.AppendLine(curLine);
-							}
-							lineIndex = HandleRegion(lines, lineIndex + 1, isVisible, sb, true, indent + "    ");
-						}
-						continue;
+						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible && elseVisible, sb, indent + "    ");
+						curLine = lines[lineIndex];
 					}
-				}
-			    
-				// (2)  ELIF
-				{
-					var match = RegexElif.Match(curLine);
-					if (match.Success)
+					if (RegexEndif.IsMatch(curLine))
 					{
-						Debug.WriteLine($"{indent}#elif matches");
-						var expr = match.Groups[1].ToString();
-						if (IsPurificationRelevantMacro(expr))
+						if (!isPurifierExpr && isVisible)
 						{
-							return HandleRegion(lines, lineIndex + 1, Purifier.EvaluateBooleanExpression(expr), sb, false, indent + "    ");
+							sb.AppendLine(curLine);
 						}
-						else
-						{
-							if (isVisible)
-							{
-								sb.AppendLine(curLine);
-							}
-							return HandleRegion(lines, lineIndex + 1, isVisible, sb, true, indent + "    ");
-						}
-						continue;
-					}
-				}
-
-				// (3)  ELSE
-				{
-					var match = RegexElse.Match(curLine);
-					if (match.Success)
-					{
-						Debug.WriteLine($"{indent}#else matches");
 						lineIndex += 1;
-						if (printEndToken && isVisible)
-						{
-							sb.AppendLine(curLine);
-						}
-						if (!printEndToken)
-						{
-							isVisible = !isVisible;
-						}
 						continue;
 					}
 				}
 
-				// (4)  ENDIF
+				if (RegexElif.IsMatch(curLine) || RegexElse.IsMatch(curLine) || RegexEndif.IsMatch(curLine))
 				{
-					var match = RegexEndif.Match(curLine);
-					if (match.Success)
-					{
-						Debug.WriteLine($"{indent}#endif matches");
-						if (printEndToken && isVisible)
-						{
-							sb.AppendLine(curLine);
-						}
-						return lineIndex + 1;
-					}
+					return lineIndex;
 				}
-
+				
 				// Bounds are checked by the while-loop, just add the line if it is visible
 				if (isVisible)
 				{
@@ -716,7 +711,7 @@ namespace ProjectPurifier.ViewModel
 		public StringBuilder GetPurified(string[] inputLines)
 	    {
 			var sb = new StringBuilder();
-		    var idx = HandleRegion(inputLines, 0, true, sb, true);
+		    var idx = HandleRegion(inputLines, 0, true, sb);
 		    Debug.Assert(idx == inputLines.Length);
 		    return sb;
 	    }
