@@ -21,6 +21,7 @@ namespace ProjectPurifier.Utils
 		static readonly Regex RegexDefineAssignment =  new Regex(@"#define (\w+)\s+(\w+)", RegexOptions.Compiled);
 		static readonly Regex RegexFuncMacro =  new Regex(@"(\w+)\s*\((.*)\)\s+(.*)", RegexOptions.Compiled);
 		static readonly Regex RegexDefined = new Regex(@"(.*?)defined\s*?\((.+?)\)\s*?(.*)", RegexOptions.Compiled);
+		static readonly Regex PureDefineRegex = new Regex(@"^[a-zA-Z0-9_]*$", RegexOptions.Compiled);
 		private Dictionary<string, DefineVM> _definesDict;
 		private string _definitions_code;
 		private string _helper_functions_code;
@@ -139,6 +140,28 @@ namespace ProjectPurifier.Utils
 					break;
 				}
 			} 
+			
+			// append '!= 0' to all "lone defines"
+			var splitters = new[] {"&&", "||"};
+			foreach (var splitter in splitters)
+			{
+				var newExpr = string.Empty;
+				var parts = expression.Split(new [] { splitter }, StringSplitOptions.None);
+				foreach (var part in parts)
+				{
+					var purePart = part.Trim();
+					if (PureDefineRegex.IsMatch(purePart))
+					{
+						newExpr += $"{part} != 0 " + splitter;
+					}
+					else
+					{
+						newExpr += part + splitter;
+					}
+				}
+				expression = newExpr.Substring(0, newExpr.Length - splitter.Length);
+			}
+
 
 			string[] codeVariants = new[]
 			{
