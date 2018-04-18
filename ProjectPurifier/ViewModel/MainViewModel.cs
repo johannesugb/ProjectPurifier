@@ -31,7 +31,8 @@ namespace ProjectPurifier.ViewModel
 		static readonly Regex RegexIfdef = new Regex(@"^\s*#ifdef\s+(.*)", RegexOptions.Compiled);
 		static readonly Regex RegexIfndef = new Regex(@"^\s*#ifndef\s+(.*)", RegexOptions.Compiled);
 		static readonly Regex RegexInclude = new Regex(@"^\s*#include\s+[\<\""]([\w.]+)[\>\""]", RegexOptions.Compiled);
-		static readonly Regex RegexClInclude = new Regex(@".*\<ClInclude.*Include\s*=\s*\""([\w.]+)\""\s*?.*?(\/\>|\>)", RegexOptions.Compiled);
+		static readonly Regex RegexClInclude = new Regex(@".*\<ClInclude.*Include\s*=\s*\""([\w.\\\/]+)\""\s*?.*?(\/\>|\>)", RegexOptions.Compiled);
+		static readonly Regex NoneInclude = new Regex(@".*\<None.*Include\s*=\s*\""([\w.\\\/]+)\""\s*?.*?(\/\>|\>)", RegexOptions.Compiled);
 		static readonly Regex RegexClCompile = new Regex(@".*\<ClCompile.*Include\s*=\s*\""([\w.]+)\""\s*?.*?(\/\>|\>)", RegexOptions.Compiled);
 		static readonly Regex RegexFilter = new Regex(@".*<Filter.*Include\s*=\s*\""([\w.]+)\""\s*?.*?(\/\>|\>)", RegexOptions.Compiled);
 
@@ -588,7 +589,7 @@ namespace ProjectPurifier.ViewModel
 							}
 						}
 					}
-					
+
 					{
 						var match = RegexClInclude.Match(curLine);
 						if (match.Success)
@@ -602,8 +603,34 @@ namespace ProjectPurifier.ViewModel
 								}
 								else
 								{
-									Debug.Assert(match.Groups[2].ToString() == ">");	
+									Debug.Assert(match.Groups[2].ToString() == ">");
 									while (!curLine.Contains(@"</ClInclude>"))
+									{
+										lineIndex += 1;
+										curLine = lines[lineIndex];
+									}
+									lineIndex += 1;
+								}
+								continue;
+							}
+						}
+					}
+
+					{
+						var match = NoneInclude.Match(curLine);
+						if (match.Success)
+						{
+							if (IsFileToBeExcluded(match.Groups[1].ToString()))
+							{
+								if (match.Groups[2].ToString() == "/>")
+								{
+									lineIndex += 1;
+									continue;
+								}
+								else
+								{
+									Debug.Assert(match.Groups[2].ToString() == ">");
+									while (!curLine.Contains(@"</None>"))
 									{
 										lineIndex += 1;
 										curLine = lines[lineIndex];

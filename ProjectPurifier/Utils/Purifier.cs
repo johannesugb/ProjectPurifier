@@ -21,7 +21,8 @@ namespace ProjectPurifier.Utils
 		static readonly Regex RegexDefineAssignment =  new Regex(@"#define (\w+)\s+(\w+)", RegexOptions.Compiled);
 		static readonly Regex RegexFuncMacro =  new Regex(@"(\w+)\s*\((.*)\)\s+(.*)", RegexOptions.Compiled);
 		static readonly Regex RegexDefined = new Regex(@"(.*?)defined\s*?\((.+?)\)\s*?(.*)", RegexOptions.Compiled);
-		static readonly Regex PureDefineRegex = new Regex(@"^[a-zA-Z0-9_]*$", RegexOptions.Compiled);
+		static readonly Regex PureDefineRegex = new Regex(@"^[a-zA-Z0-9_]+$", RegexOptions.Compiled);
+		static readonly Regex NegPureDefineRegex = new Regex(@"^![a-zA-Z0-9_]+$", RegexOptions.Compiled);
 		private Dictionary<string, DefineVM> _definesDict;
 		private string _definitions_code;
 		private string _helper_functions_code;
@@ -142,26 +143,42 @@ namespace ProjectPurifier.Utils
 			} 
 			
 			// append '!= 0' to all "lone defines"
-			var splitters = new[] {"&&", "||"};
-			foreach (var splitter in splitters)
+			var newExpr = string.Empty;
+			var resumeIdx = 0;
+			while (true)
 			{
-				var newExpr = string.Empty;
-				var parts = expression.Split(new [] { splitter }, StringSplitOptions.None);
-				foreach (var part in parts)
+				void AppendPart(string part)
 				{
 					var purePart = part.Trim();
 					if (PureDefineRegex.IsMatch(purePart))
 					{
-						newExpr += $"{part} != 0 " + splitter;
+						newExpr += $"{part} != 0 ";
+					}
+					else if (NegPureDefineRegex.IsMatch(purePart))
+					{
+						newExpr += $" {purePart.Substring(1)} == 0 ";
 					}
 					else
 					{
-						newExpr += part + splitter;
+						newExpr += part;
 					}
 				}
-				expression = newExpr.Substring(0, newExpr.Length - splitter.Length);
-			}
 
+				var andIdx = expression.IndexOf("&&", resumeIdx, StringComparison.InvariantCulture);
+				var orIdx = expression.IndexOf("||", resumeIdx, StringComparison.InvariantCulture);
+				if (andIdx == -1 && orIdx == -1)
+				{
+					var part = expression.Substring(resumeIdx);
+					AppendPart(part);
+					break;
+				}
+				var minIdx = Math.Min(andIdx, orIdx);
+				minIdx = minIdx == -1 ? Math.Max(andIdx, orIdx) : minIdx;
+				AppendPart(expression.Substring(resumeIdx, minIdx - resumeIdx));
+				newExpr += expression.Substring(minIdx, 2);
+				resumeIdx = minIdx + 2;
+			}
+			expression = newExpr;
 
 			string[] codeVariants = new[]
 			{
