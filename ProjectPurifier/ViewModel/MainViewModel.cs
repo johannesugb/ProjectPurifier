@@ -239,7 +239,7 @@ namespace ProjectPurifier.ViewModel
 						Debug.WriteLine(ex);
 						CurrentlyPurifying = false;
 					}
-				}, DispatcherPriority.ContextIdle);
+				}, DispatcherPriority.ApplicationIdle);
 			}, _ => !string.IsNullOrWhiteSpace(OutputFolder));
 
 			// initially, set the values from the config
