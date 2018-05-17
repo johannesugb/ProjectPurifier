@@ -212,10 +212,24 @@ namespace ProjectPurifier.ViewModel
 									var destination = filepath.Replace(inputItem, outputItem);
 									
 									var fileInfoOut = new FileInfo(destination);
-									Directory.CreateDirectory(fileInfoOut.DirectoryName);
+									Directory.CreateDirectory(fileInfoOut.Directory.FullName);
 
 									File.Copy(filepath, destination, true);
-									// ####### 3. Purify each and every file #######
+
+									// ####### 3. Purify each and every file (maybe) #######
+									if (new FileInfo(destination).Length > 524288L) // only check if bigger than 512KiB
+									{	
+										if (FileTypeDetector.MightBeBinary(destination))
+										{
+											Console.WriteLine($"Skipping file '{destination}' because it might be binary.");
+											continue;
+										}
+										if (!FileTypeDetector.MightBeText(out var tmp, destination))
+										{
+											Console.WriteLine($"Skipping file '{destination}' because it might not be text.");
+											continue;
+										}
+									}
 									if (!PurifyFile(destination))
 										throw new Exception("PurifyFile failed");
 								}
@@ -224,8 +238,26 @@ namespace ProjectPurifier.ViewModel
 							{
 								if (!IsFileToBeExcluded(inputItem))
 								{
+									// Create destination directory if it not already exists:
+									var fileInfoOut = new FileInfo(outputItem);
+									Directory.CreateDirectory(fileInfoOut.Directory.FullName);
+									
 									File.Copy(inputItem, outputItem, true);
-									// ####### 3. Purify each and every file #######
+
+									// ####### 3. Purify each and every file (maybe) #######
+									if (new FileInfo(outputItem).Length > 524288L) // only check if bigger than 512KiB
+									{
+										if (FileTypeDetector.MightBeBinary(outputItem))
+										{
+											Console.WriteLine($"Skipping file '{outputItem}' because it might be binary.");
+											continue;
+										}
+										if (!FileTypeDetector.MightBeText(out var tmp, outputItem))
+										{
+											Console.WriteLine($"Skipping file '{outputItem}' because it might not be text.");
+											continue;
+										}
+									}
 									if (!PurifyFile(outputItem))
 										throw new Exception("PurifyFile failed");
 								}
@@ -742,5 +774,6 @@ namespace ProjectPurifier.ViewModel
 		    Debug.Assert(idx == inputLines.Length);
 		    return sb;
 	    }
+		
 	}
 }

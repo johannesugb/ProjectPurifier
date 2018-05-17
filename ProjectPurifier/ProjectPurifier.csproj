@@ -56,6 +56,7 @@
     </ApplicationDefinition>
     <Compile Include="Converter\BoolToCollapsedConverter.cs" />
     <Compile Include="Utils\Combinatorics.cs" />
+    <Compile Include="Utils\FileTypeDetector.cs" />
     <Compile Include="Utils\Purifier.cs" />
     <Compile Include="ViewModel\BindableBase.cs" />
     <Compile Include="ViewModel\DefineVM.cs" />
