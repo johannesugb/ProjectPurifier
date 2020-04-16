@@ -15,8 +15,8 @@ namespace ProjectPurifier.Utils
 {
 	class Purifier
 	{
-		public const string SpecialPurificationCommandVisible = "__PURIFIER_INCLUDE_ALWAYS__";
-		public const string SpecialPurificationCommandInvisible = "__PURIFIER_DELETE_ALWAYS__";
+		public const string SpecialPurificationCommandVisible = "Ixxx_PURIFIER_INCLUDE_ALWAYS_xxxI";
+		public const string SpecialPurificationCommandInvisible = "Ixxx_PURIFIER_DELETE_ALWAYS_xxxI";
 
 		static readonly Regex RegexDefineAssignment =  new Regex(@"#define (\w+)\s+(\w+)", RegexOptions.Compiled);
 		static readonly Regex RegexFuncMacro =  new Regex(@"(\w+)\s*\((.*)\)\s+(.*)", RegexOptions.Compiled);

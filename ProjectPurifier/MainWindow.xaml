@@ -95,10 +95,10 @@
 						<RowDefinition Height="Auto" />
 					</Grid.RowDefinitions>
 					<TextBlock Grid.Column="0" Grid.Row="0" Text="#if " FontWeight="Bold" Foreground="DarkGray" Margin="1"/>
-					<TextBlock Grid.Column="1" Grid.Row="0" Text="__PURIFIER_DELETE_ALWAYS__" FontWeight="Bold" Foreground="Purple" Margin="1"/>
+                    <TextBlock Grid.Column="1" Grid.Row="0" Text="Ixxx_PURIFIER_DELETE_ALWAYS_xxxI" FontWeight="Bold" Foreground="Purple" Margin="1"/>
 					<TextBlock Grid.Column="2" Grid.Row="0" Text="Will never be in output." FontStyle="Italic" Margin="5,1,1,1" Foreground="DodgerBlue"/>
 					<TextBlock Grid.Column="0" Grid.Row="1" Text="#if " FontWeight="Bold" Foreground="DarkGray" Margin="1"/>
-					<TextBlock Grid.Column="1" Grid.Row="1" Text="__PURIFIER_INCLUDE_ALWAYS__" FontWeight="Bold" Foreground="Purple" Margin="1"/>
+                    <TextBlock Grid.Column="1" Grid.Row="1" Text="Ixxx_PURIFIER_INCLUDE_ALWAYS_xxxI" FontWeight="Bold" Foreground="Purple" Margin="1"/>
 					<TextBlock Grid.Column="2" Grid.Row="1" Text="Will always be included in output." FontStyle="Italic" Margin="5,1,1,1" Foreground="DodgerBlue"/>
 				</Grid>
 
