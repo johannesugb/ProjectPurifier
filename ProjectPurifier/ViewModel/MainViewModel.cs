@@ -58,7 +58,7 @@ namespace ProjectPurifier.ViewModel
 		    get => _inputFolders;
 			set
 			{
-				SetProperty(ref _inputFolders, value);
+				SetProperty(ref _inputFolders, value.Replace("\"", ""));
 				Settings.Default.InputFoldersLastValue = value;
 				Settings.Default.Save();
 			}
@@ -69,7 +69,7 @@ namespace ProjectPurifier.ViewModel
 		    get => _purifierConfigFile;
 		    set
 		    {
-			    SetProperty(ref _purifierConfigFile, value);	
+			    SetProperty(ref _purifierConfigFile, value.Replace("\"", ""));	
 			    Settings.Default.PurifierConfigFileLastValue = value; 
 				Settings.Default.Save();
 				FireAllCanExecuteChanged();
@@ -82,7 +82,7 @@ namespace ProjectPurifier.ViewModel
 		    get => _outputFolder;
 			set
 			{
-				SetProperty(ref _outputFolder, value);
+				SetProperty(ref _outputFolder, value.Replace("\"", ""));
 				Settings.Default.OutputFolderLastValue = value;
 				Settings.Default.Save();
 				FireAllCanExecuteChanged();
@@ -94,7 +94,7 @@ namespace ProjectPurifier.ViewModel
 		    get => _inspectionFile;
 			set
 			{
-				SetProperty(ref _inspectionFile, value);
+				SetProperty(ref _inspectionFile, value.Replace("\"", ""));
 				Settings.Default.FileToInspectLastValue = value;
 				Settings.Default.Save();
 				FireAllCanExecuteChanged();
@@ -474,7 +474,7 @@ namespace ProjectPurifier.ViewModel
 		/// <returns>true if an if could be matched</returns>
 		bool DoesAnyIfMatch(string lineToMatch, out bool isPurifierExpression, out bool contentIsVisible, string indent = "")
 	    {
-		    // gather all if-regexes in one array, second parmeter means: negate expression result yes/no
+		    // gather all if-regexes in one array, second parameter means: negate expression result yes/no
 		    Tuple<Regex, bool>[] ifs = {
 			    new Tuple<Regex, bool>(RegexIf, false),
 			    new Tuple<Regex, bool>(RegexIfdef, false),
@@ -580,7 +580,7 @@ namespace ProjectPurifier.ViewModel
 						}
 						lineIndex = HandleRegion(lines, lineIndex + 1, isVisible && elseVisible && (!isPurifierExpr || elifContentIsVisi), sb, indent + "    ");
 						curLine = lines[lineIndex];
-						elseVisible = isVisible && (!isPurifierExpr || !elifContentIsVisi);
+						elseVisible &= (!isPurifierExpr || !elifContentIsVisi);
 					}
 					if (RegexElse.IsMatch(curLine))
 					{
