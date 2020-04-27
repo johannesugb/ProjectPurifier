@@ -726,7 +726,7 @@ namespace ProjectPurifier.ViewModel
 						}
 					}
 
-					sb.AppendLine(curLine);
+					sb.AppendLine(Purifier.PurifyCodeLine(curLine));
 				}
 				lineIndex += 1;
 			}

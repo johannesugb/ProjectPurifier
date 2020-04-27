@@ -277,6 +277,13 @@ namespace ProjectPurifier.Utils
 			return methodDlg();
 		}
 
-
+		public string PurifyCodeLine(string line)
+		{
+			foreach (string define in _definesDict.Keys)
+			{
+				line = Regex.Replace(line, "\\b" + define + "\\b", m => PurifyCodeLine(_definesDict[define].DefinedAs));
+			}
+			return line;
+		}
 	}
 }
