@@ -281,10 +281,7 @@ namespace ProjectPurifier.Utils
 		{
 			foreach (string define in _definesDict.Keys)
 			{
-				if (line.Contains(define))
-				{
-					line = line.Replace(define, PurifyCodeLine(_definesDict[define].DefinedAs));
-				}
+				line = Regex.Replace(line, "\\b" + define + "\\b", m => PurifyCodeLine(_definesDict[define].DefinedAs));
 			}
 			return line;
 		}
