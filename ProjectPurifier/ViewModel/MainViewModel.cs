@@ -30,11 +30,11 @@ namespace ProjectPurifier.ViewModel
 		static readonly Regex RegexEndif = new Regex(@"^\s*#endif\s*", RegexOptions.Compiled);
 		static readonly Regex RegexIfdef = new Regex(@"^\s*#ifdef\s+(.*)", RegexOptions.Compiled);
 		static readonly Regex RegexIfndef = new Regex(@"^\s*#ifndef\s+(.*)", RegexOptions.Compiled);
-		static readonly Regex RegexInclude = new Regex(@"^\s*#include\s+[\<\""]([\w.]+)[\>\""]", RegexOptions.Compiled);
+		static readonly Regex RegexInclude = new Regex(@"^\s*#include\s+[\<\""]([\w.\\\/]+)[\>\""]", RegexOptions.Compiled);
 		static readonly Regex RegexClInclude = new Regex(@".*\<ClInclude.*Include\s*=\s*\""([\w.\\\/]+)\""\s*?.*?(\/\>|\>)", RegexOptions.Compiled);
 		static readonly Regex NoneInclude = new Regex(@".*\<None.*Include\s*=\s*\""([\w.\\\/]+)\""\s*?.*?(\/\>|\>)", RegexOptions.Compiled);
-		static readonly Regex RegexClCompile = new Regex(@".*\<ClCompile.*Include\s*=\s*\""([\w.]+)\""\s*?.*?(\/\>|\>)", RegexOptions.Compiled);
-		static readonly Regex RegexFilter = new Regex(@".*<Filter.*Include\s*=\s*\""([\w.]+)\""\s*?.*?(\/\>|\>)", RegexOptions.Compiled);
+		static readonly Regex RegexClCompile = new Regex(@".*\<ClCompile.*Include\s*=\s*\""([\w.\\\/]+)\""\s*?.*?(\/\>|\>)", RegexOptions.Compiled);
+		static readonly Regex RegexFilter = new Regex(@".*<Filter.*Include\s*=\s*\""([\w.\\\/]+)\""\s*?.*?(\/\>|\>)", RegexOptions.Compiled);
 
 		private string _inputFolders;
 		private string _purifierConfigFile;
