@@ -139,7 +139,7 @@
 				<TextBlock Text="Input-Items:" HorizontalAlignment="Stretch"/>
 				<Grid>
 					<TextBox Text="{Binding InputFolders}" TextWrapping="Wrap" AcceptsReturn="True" Padding="2" Margin="1"
-					         x:Name="TbInputFolders" Height="100" />
+					         x:Name="TbInputFolders" Height="140" />
 				</Grid>
 
 			</StackPanel>
@@ -148,7 +148,7 @@
 				<TextBlock Text="(aligned) Output-Items:" />
 				<Grid Margin="0,0,0,0">
 					<TextBox Text="{Binding OutputFolder}"  TextWrapping="Wrap" AcceptsReturn="True" Padding="2" Margin="1"
-							 x:Name="TbOutputFolder" Height="100" />
+							 x:Name="TbOutputFolder" Height="140" />
 				</Grid>
 			</StackPanel>
 
